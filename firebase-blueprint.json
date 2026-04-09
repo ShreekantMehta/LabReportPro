@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A lab user account",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "labName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "LabProfile": {
+      "title": "LabProfile",
+      "description": "Branding and contact details for a lab",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "labName": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "registrationNumber": { "type": "string" },
+        "signatureUrl": { "type": "string" },
+        "subscriptionStatus": { "type": "string", "enum": ["active", "expired", "pending_verification"] },
+        "subscriptionEndDate": { "type": "string", "format": "date-time" },
+        "paymentScreenshotUrl": { "type": "string" },
+        "pendingPlanId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isNewUser": { "type": "boolean" },
+        "tagline": { "type": "string" },
+        "website": { "type": "string" },
+        "additionalPhone": { "type": "string" },
+        "letterheadUrl": { "type": "string" },
+        "useLetterhead": { "type": "boolean" },
+        "technicianName": { "type": "string" },
+        "doctorName": { "type": "string" }
+      },
+      "required": ["uid", "labName"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "A diagnostic test report",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "patientName": { "type": "string" },
+        "age": { "type": "string" },
+        "gender": { "type": "string", "enum": ["Male", "Female", "Other"] },
+        "patientId": { "type": "string" },
+        "doctorName": { "type": "string" },
+        "testName": { "type": "string" },
+        "labNo": { "type": "string" },
+        "regDate": { "type": "string" },
+        "sampleDate": { "type": "string" },
+        "sampleCollAt": { "type": "string" },
+        "resultsCache": { "type": "object" },
+        "categoryGroups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "categoryId": { "type": "string" },
+              "categoryName": { "type": "string" },
+              "tests": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "result": { "type": "string" },
+                    "unit": { "type": "string" },
+                    "referenceRange": { "type": "string" }
+                  }
+                }
+              },
+              "conclusion": { "type": "string" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "patientName", "categoryGroups", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User account details"
+    },
+    "/labProfiles/{userId}": {
+      "schema": "LabProfile",
+      "description": "Lab branding and profile"
+    },
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "Diagnostic reports"
+    }
+  }
+}

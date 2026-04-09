@@ -1,0 +1,120 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId} (matches auth.uid)
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required, email format)
+    //   - labName: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: labProfiles
+    // Document ID: {userId} (matches auth.uid)
+    // Fields:
+    //   - uid: string (required)
+    //   - labName: string (required)
+    //   - logoUrl: string (optional)
+    //   - address: string (optional)
+    //   - phone: string (optional)
+    //   - email: string (optional)
+    //   - registrationNumber: string (optional)
+    //   - signatureUrl: string (optional)
+    //
+    // Collection: reports
+    // Document ID: {reportId}
+    // Fields:
+    //   - uid: string (required, owner lab)
+    //   - patientName: string (required)
+    //   - age: string (optional)
+    //   - gender: string (optional)
+    //   - patientId: string (optional)
+    //   - doctorName: string (optional)
+    //   - testName: string (optional)
+    //   - categoryGroups: list (required)
+    //   - createdAt: timestamp (required)
+    //   - updatedAt: timestamp (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function isRequestOwner() {
+      return isAuthenticated() && request.auth.uid == request.resource.data.uid;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+          request.auth.token.email == "shree22598mehta@gmail.com"
+        );
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.uid == request.auth.uid &&
+             isValidEmail(data.email);
+    }
+
+    function isValidLabProfile(data) {
+      return data.uid == request.auth.uid &&
+             data.labName is string && data.labName.size() > 0;
+    }
+
+    function isValidReport(data) {
+      return data.uid == request.auth.uid &&
+             data.patientName is string && data.patientName.size() > 0;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data);
+    }
+
+    match /labProfiles/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidLabProfile(request.resource.data);
+      allow update: if (isOwner(userId) || isAdmin()) && isValidLabProfile(request.resource.data);
+    }
+
+    match /reports/{reportId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow list: if isAuthenticated() && (isAdmin() || request.query.limit <= 100); 
+      allow create: if isRequestOwner() && isValidReport(request.resource.data);
+      allow update: if (isDocOwner() || isAdmin()) && isValidReport(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+    }
+  }
+}
