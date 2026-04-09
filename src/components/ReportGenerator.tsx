@@ -18,8 +18,7 @@ import {
   Filter,
   X,
   Save,
-  Database,
-  Printer,
+  Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import html2pdf from 'html2pdf.js';
@@ -100,107 +99,6 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 
-const ID_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
-
-function createId() {
-  return Array.from({ length: 9 }, () => ID_CHARS[Math.floor(Math.random() * ID_CHARS.length)]).join('');
-}
-
-function inferMethod(testName: string, subCategoryName?: string) {
-  const name = testName.toLowerCase();
-  const subCategory = (subCategoryName || '').toLowerCase();
-
-  if (name.includes('hba1c')) return 'HPLC';
-  if (name.includes('glucose') || name.includes('sugar')) return 'GOD-POD';
-  if (name.includes('bilirubin')) return 'Diazo Method';
-  if (name.includes('urea')) return 'Urease UV';
-  if (name.includes('creatinine')) return 'Jaffe Kinetic';
-  if (name.includes('cholesterol')) return 'CHOD-PAP';
-  if (name.includes('triglyceride')) return 'GPO-PAP';
-  if (name.includes('hdl') || name.includes('ldl') || name.includes('vldl')) return 'Direct Enzymatic';
-  if (name.includes('sgot') || name.includes('ast') || name.includes('sgpt') || name.includes('alt')) return 'IFCC Kinetic';
-  if (name.includes('alkaline phosphatase')) return 'PNPP Kinetic';
-  if (name.includes('crp')) return 'Immunoturbidimetry';
-  if (name.includes('troponin')) return 'CLIA';
-  if (name.includes('vitamin d') || name.includes('vitamin b12') || name.includes('ferritin')) return 'CLIA';
-  if (name.includes('tsh') || name.includes('t3') || name.includes('t4') || name.includes('prolactin') || name.includes('amh')) return 'Chemiluminescence Immunoassay';
-  if (name.includes('hiv') || name.includes('hbsag') || name.includes('hcv') || name.includes('dengue') || name.includes('torch')) return 'ELISA / CLIA';
-  if (name.includes('widal')) return 'Slide Agglutination';
-  if (name.includes('culture')) return 'Culture and Sensitivity';
-  if (name.includes('stain') || name.includes('smear')) return 'Microscopy';
-  if (name.includes('pcr') || subCategory.includes('pcr')) return 'Real-Time PCR';
-  if (name.includes('cbc') || name.includes('haemoglobin') || name.includes('platelet') || name.includes('wbc') || name.includes('rbc')) return 'Automated Hematology Analyzer';
-  if (name.includes('urine') || name.includes('stool') || name.includes('semen') || name.includes('fluid analysis')) return 'Microscopy and Chemical Analysis';
-
-  return 'Standard Laboratory Method';
-}
-
-function inferSignificance(testName: string, subCategoryName?: string) {
-  const subject = subCategoryName ? `${testName} in ${subCategoryName}` : testName;
-  const name = testName.toLowerCase();
-
-  if (name.includes('glucose') || name.includes('sugar')) {
-    return `${testName} helps assess glycemic status, screen for diabetes, and monitor short-term glucose control.`;
-  }
-  if (name.includes('hba1c')) {
-    return `${testName} reflects average blood glucose over the past 8 to 12 weeks and supports diabetes diagnosis and monitoring.`;
-  }
-  if (name.includes('cbc') || name.includes('haemoglobin') || name.includes('platelet') || name.includes('wbc') || name.includes('rbc')) {
-    return `${subject} helps evaluate anemia, infection, inflammation, platelet disorders, and overall hematologic status.`;
-  }
-  if (name.includes('bilirubin') || name.includes('sgot') || name.includes('sgpt') || name.includes('alkaline phosphatase') || name.includes('ggt')) {
-    return `${subject} is useful for assessing liver cell injury, cholestasis, and overall hepatobiliary function.`;
-  }
-  if (name.includes('urea') || name.includes('creatinine') || name.includes('egfr') || name.includes('uric acid')) {
-    return `${subject} is used to evaluate renal function, filtration status, and kidney-related metabolic imbalance.`;
-  }
-  if (name.includes('cholesterol') || name.includes('triglyceride') || name.includes('lipid')) {
-    return `${subject} helps estimate cardiovascular risk and monitor lipid-lowering therapy.`;
-  }
-  if (name.includes('tsh') || name.includes('t3') || name.includes('t4') || name.includes('thyroid')) {
-    return `${subject} helps assess thyroid hormone balance and supports diagnosis and follow-up of thyroid disorders.`;
-  }
-  if (name.includes('hiv') || name.includes('hbsag') || name.includes('hcv') || name.includes('dengue') || name.includes('widal') || name.includes('vdrl')) {
-    return `${subject} supports detection or screening of infectious disease and helps correlate with clinical findings.`;
-  }
-  if (name.includes('culture') || name.includes('sensitivity')) {
-    return `${subject} helps identify the causative organism and guides targeted antimicrobial therapy.`;
-  }
-  if (name.includes('pcr')) {
-    return `${subject} detects genetic material with high sensitivity and is useful for early and specific diagnosis.`;
-  }
-  if (name.includes('urine') || name.includes('stool') || name.includes('semen') || name.includes('fluid')) {
-    return `${subject} provides diagnostic clues about infection, inflammation, metabolic disorders, and organ-specific pathology.`;
-  }
-
-  return `${subject} is clinically useful for diagnosis, disease screening, and treatment monitoring when correlated with patient symptoms and history.`;
-}
-
-function applyMetadataDefaults(item: any, subCategoryName?: string): any {
-  return {
-    ...item,
-    method: item.method || inferMethod(item.name, subCategoryName),
-    significance: item.significance || inferSignificance(item.name, subCategoryName),
-    subParameters: item.subParameters?.map((subItem) => applyMetadataDefaults(subItem, subCategoryName)),
-  };
-}
-
-function removeUndefinedDeep<T>(value: T): T {
-  if (Array.isArray(value)) {
-    return value.map((entry) => removeUndefinedDeep(entry)) as T;
-  }
-
-  if (value && typeof value === 'object') {
-    return Object.entries(value as Record<string, unknown>).reduce((acc, [key, entry]) => {
-      if (entry === undefined) return acc;
-      acc[key] = removeUndefinedDeep(entry);
-      return acc;
-    }, {} as Record<string, unknown>) as T;
-  }
-
-  return value;
-}
-
 export default function ReportGenerator({ labProfile, initialData }: any) {
   const [loading, setLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -232,10 +130,9 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
 
   const saveTestToCache = (test: TestResult) => {
     if (!test.name) return;
-    const cachedValue = applyMetadataDefaults(test);
     const newCache = {
       ...resultsCache,
-      [test.name]: JSON.parse(JSON.stringify(cachedValue))
+      [test.name]: JSON.parse(JSON.stringify(test))
     };
     setResultsCache(newCache);
     localStorage.setItem('lab_results_cache', JSON.stringify(newCache));
@@ -271,11 +168,11 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
         setCategoryGroups(initialData.categoryGroups.map((g: any) => ({
           ...g,
           tests: g.tests.map((t: any) => ({
-            ...applyMetadataDefaults(t, g.subCategoryName),
-            id: t.id || createId(),
+            ...t,
+            id: t.id || Math.random().toString(36).substr(2, 9),
             subParameters: t.subParameters?.map((sp: any) => ({
-              ...applyMetadataDefaults(sp, g.subCategoryName),
-              id: sp.id || createId()
+              ...sp,
+              id: sp.id || Math.random().toString(36).substr(2, 9)
             }))
           }))
         })));
@@ -287,7 +184,7 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
           if (!groups[catId]) {
             const catInfo = TEST_CATALOG.find(c => c.id === catId);
             groups[catId] = {
-              id: createId(),
+              id: Math.random().toString(36).substr(2, 9),
               categoryId: catId,
               categoryName: catInfo?.name || 'General',
               tests: [],
@@ -295,13 +192,11 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
             };
           }
           groups[catId].tests.push({
-            ...applyMetadataDefaults({
-              id: createId(),
-              name: test.name,
-              unit: test.unit,
-              referenceRange: test.referenceRange,
-              result: test.result,
-            }),
+            id: Math.random().toString(36).substr(2, 9),
+            name: test.name,
+            unit: test.unit,
+            referenceRange: test.referenceRange,
+            result: test.result,
           });
         });
         setCategoryGroups(Object.values(groups));
@@ -321,10 +216,10 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
       });
       
       const newGroup: CategoryGroup = {
-        id: createId(),
+        id: Math.random().toString(36).substr(2, 9),
         categoryId: 'all',
         categoryName: 'General',
-        tests: [{ id: createId(), name: '', result: '', unit: '', referenceRange: '' }],
+        tests: [{ id: Math.random().toString(36).substr(2, 9), name: '', result: '', unit: '', referenceRange: '' }],
         conclusion: '',
       };
       setCategoryGroups([newGroup]);
@@ -333,10 +228,10 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
 
   const addCategoryGroup = () => {
     const newGroup: CategoryGroup = {
-      id: createId(),
+      id: Math.random().toString(36).substr(2, 9),
       categoryId: 'all',
       categoryName: 'General',
-      tests: [{ id: createId(), name: '', result: '', unit: '', referenceRange: '' }],
+      tests: [{ id: Math.random().toString(36).substr(2, 9), name: '', result: '', unit: '', referenceRange: '' }],
       conclusion: '',
     };
     setCategoryGroups(prev => [...prev, newGroup]);
@@ -370,7 +265,7 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
       if (g.id === groupId) {
         return { 
           ...g, 
-          tests: [...g.tests, { id: createId(), name: '', result: '', unit: '', referenceRange: '' }] 
+          tests: [...g.tests, { id: Math.random().toString(36).substr(2, 9), name: '', result: '', unit: '', referenceRange: '' }] 
         };
       }
       return g;
@@ -436,15 +331,15 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
         if (g.id === groupId) {
           const newTests = [...g.tests];
           const oldTest = newTests[testIndex];
-          const selectedGroup = prev.find((group) => group.id === groupId);
-          const subCategoryName = selectedGroup?.subCategoryName;
           
           // Check if the new test exists in cache for sub-parameters
           const cachedTest = resultsCache[test.name];
 
-          newTests[testIndex] = applyMetadataDefaults({
-            ...test,
+          newTests[testIndex] = { 
+            ...test, 
             id: oldTest.id,
+            method: test.method,
+            significance: test.significance,
             // Check global state/cache first, then immediately previous test
             result: findExistingResult(test.name) || (oldTest.name === test.name ? oldTest.result : ''),
             // Map sub-parameters and check global state/cache for each
@@ -454,11 +349,13 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
               const oldSubParam = oldTest.subParameters?.find(osp => osp.name === sp.name);
               return { 
                 ...sp, 
-                id: oldSubParam?.id || createId(),
+                id: oldSubParam?.id || Math.random().toString(36).substr(2, 9),
+                method: sp.method,
+                significance: sp.significance,
                 result: globalResult || (oldSubParam ? oldSubParam.result : '') 
               };
-            }),
-          }, subCategoryName);
+            })
+          };
           return { ...g, tests: newTests };
         }
         return g;
@@ -498,137 +395,98 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
     );
   };
 
-  const buildPdfOptions = () => ({
-    margin: 0,
-    filename: `Report_${patientData.patientName || 'Patient'}_${Date.now()}.pdf`,
-    image: { type: 'jpeg' as const, quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      letterRendering: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-      windowWidth: 794,
-      onclone: (clonedDoc: Document) => {
-        const exportRoot = clonedDoc.getElementById('report-export-root');
-        if (exportRoot) {
-          (exportRoot as HTMLElement).style.position = 'static';
-          (exportRoot as HTMLElement).style.left = '0';
-          (exportRoot as HTMLElement).style.top = '0';
-          (exportRoot as HTMLElement).style.opacity = '1';
-          (exportRoot as HTMLElement).style.width = '210mm';
-        }
-
-        const elements = clonedDoc.getElementsByTagName('*');
-        for (let i = 0; i < elements.length; i++) {
-          const el = elements[i] as HTMLElement;
-          const style = window.getComputedStyle(el);
-          const colorProps = ['color', 'backgroundColor', 'borderColor', 'fill', 'stroke'];
-
-          colorProps.forEach((prop) => {
-            const value = (style as any)[prop];
-            if (value && (value.includes('oklch') || value.includes('oklab'))) {
-              if (prop === 'color') el.style.setProperty(prop, '#000000', 'important');
-              else if (prop === 'backgroundColor') el.style.setProperty(prop, '#ffffff', 'important');
-              else el.style.setProperty(prop, 'transparent', 'important');
-            }
-          });
-
-          el.style.boxShadow = 'none';
-          el.style.textShadow = 'none';
-          el.style.filter = 'none';
-          el.style.backdropFilter = 'none';
-        }
-
-        const styleTags = clonedDoc.getElementsByTagName('style');
-        for (let i = 0; i < styleTags.length; i++) {
-          let content = styleTags[i].innerHTML;
-          if (content.includes('oklch') || content.includes('oklab')) {
-            content = content.replace(/oklch\([^)]+\)/g, 'rgb(0,0,0)');
-            content = content.replace(/oklab\([^)]+\)/g, 'rgb(0,0,0)');
-            styleTags[i].innerHTML = content;
-          }
-        }
-
-        const linkTags = clonedDoc.getElementsByTagName('link');
-        for (let i = linkTags.length - 1; i >= 0; i--) {
-          if (linkTags[i].rel === 'stylesheet') {
-            linkTags[i].parentNode?.removeChild(linkTags[i]);
-          }
-        }
-      },
-    },
-    jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
-    pagebreak: { mode: ['css', 'legacy'] },
-  });
-
   const generatePDF = async () => {
-    const element = reportRef.current;
-
+    let element = reportRef.current;
+    
     if (!element) {
       console.error('Report element not found');
       return;
     }
+    
+    const opt = {
+      margin: 0,
+      filename: `Report_${patientData.patientName || 'Patient'}_${Date.now()}.pdf`,
+      image: { type: 'jpeg' as const, quality: 1.0 },
+      html2canvas: { 
+        scale: 3, 
+        useCORS: true, 
+        letterRendering: true,
+        logging: false,
+        onclone: (clonedDoc: Document) => {
+          // Fix for html2canvas not supporting oklch/oklab colors
+          const elements = clonedDoc.getElementsByTagName('*');
+          
+          // 1. Apply computed styles as inline styles to all elements
+          for (let i = 0; i < elements.length; i++) {
+            const el = elements[i] as HTMLElement;
+            const style = window.getComputedStyle(el);
+            
+            // Properties that might contain problematic colors
+            const colorProps = [
+              'color', 'backgroundColor', 'borderColor', 'fill', 'stroke'
+            ];
+            
+            colorProps.forEach(prop => {
+              let value = (style as any)[prop];
+              if (value && (value.includes('oklch') || value.includes('oklab'))) {
+                // Simple heuristic: if it's a known laboratory color, use hex
+                if (el.classList.contains('text-blue-900')) el.style.setProperty(prop, '#1e3a8a', 'important');
+                else if (el.classList.contains('text-blue-600')) el.style.setProperty(prop, '#2563eb', 'important');
+                else if (el.classList.contains('bg-blue-600')) el.style.setProperty(prop, '#2563eb', 'important');
+                else if (el.classList.contains('bg-slate-900')) el.style.setProperty(prop, '#0f172a', 'important');
+                else if (el.classList.contains('text-slate-900')) el.style.setProperty(prop, '#0f172a', 'important');
+                else if (el.classList.contains('text-slate-500')) el.style.setProperty(prop, '#64748b', 'important');
+                else if (el.classList.contains('text-slate-400')) el.style.setProperty(prop, '#94a3b8', 'important');
+                else if (prop === 'color') el.style.setProperty(prop, '#000000', 'important');
+                else if (prop === 'backgroundColor') el.style.setProperty(prop, '#ffffff', 'important');
+                else el.style.setProperty(prop, 'transparent', 'important');
+              }
+            });
+
+            // Remove shadows and filters as they often cause html2canvas to crash
+            el.style.boxShadow = 'none';
+            el.style.textShadow = 'none';
+            el.style.filter = 'none';
+            el.style.backdropFilter = 'none';
+          }
+
+          // 2. Sanitize style tags instead of removing them
+          const styleTags = clonedDoc.getElementsByTagName('style');
+          for (let i = 0; i < styleTags.length; i++) {
+            let content = styleTags[i].innerHTML;
+            if (content.includes('oklch') || content.includes('oklab')) {
+              // Replace oklch/oklab with a safe fallback to prevent html2canvas parser crash
+              content = content.replace(/oklch\([^)]+\)/g, 'rgb(0,0,0)');
+              content = content.replace(/oklab\([^)]+\)/g, 'rgb(0,0,0)');
+              styleTags[i].innerHTML = content;
+            }
+          }
+          
+          // Only remove external link stylesheets as they are most likely to contain problematic CSS
+          const linkTags = clonedDoc.getElementsByTagName('link');
+          for (let i = linkTags.length - 1; i >= 0; i--) {
+            if (linkTags[i].rel === 'stylesheet') {
+              linkTags[i].parentNode?.removeChild(linkTags[i]);
+            }
+          }
+        }
+      },
+      jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    };
 
     try {
       setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      await html2pdf().from(element).set(buildPdfOptions()).save();
+      // Small delay to ensure any dynamic content is ready and styles are applied
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      await html2pdf().from(element).set(opt).save();
     } catch (err: any) {
       console.error('PDF Generation Error:', err);
-      alert(`Failed to generate PDF. ${err.message}`);
+      alert(`Failed to generate PDF. This might be due to a browser compatibility issue with certain colors. Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handlePrint = async () => {
-    const element = reportRef.current;
-
-    if (!element) {
-      alert('Preview is not ready for printing yet.');
-      return;
-    }
-
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-
-    const iframeDoc = iframe.contentWindow?.document;
-    if (!iframeDoc) {
-      document.body.removeChild(iframe);
-      alert('Unable to open print preview.');
-      return;
-    }
-
-    const styleTags = Array.from(document.querySelectorAll('style')).map((style) => style.outerHTML).join('\n');
-
-    iframeDoc.open();
-    iframeDoc.write(`
-      <html>
-        <head>
-          <title>Print Report</title>
-          ${styleTags}
-          <style>
-            body { margin: 0; background: white; }
-            @page { size: A4; margin: 0; }
-          </style>
-        </head>
-        <body>${element.innerHTML}</body>
-      </html>
-    `);
-    iframeDoc.close();
-
-    setTimeout(() => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-      setTimeout(() => document.body.removeChild(iframe), 1000);
-    }, 300);
   };
 
   const handleSave = async () => {
@@ -639,23 +497,17 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
 
     setLoading(true);
     try {
-      const cleanedGroups = categoryGroups
-        .map((g) => ({
-          ...g,
-          tests: g.tests
-            .filter((t) => t.name || t.result)
-            .map((t) => applyMetadataDefaults(t, g.subCategoryName)),
-        }))
-        .filter((g) => g.tests.length > 0);
-
-      const reportData = removeUndefinedDeep({
+      const reportData = {
         ...patientData,
-        categoryGroups: cleanedGroups,
+        categoryGroups: categoryGroups.map(g => ({
+          ...g,
+          tests: g.tests.filter(t => t.name || t.result)
+        })).filter(g => g.tests.length > 0),
         resultsCache,
-        uid: auth.currentUser?.uid || labProfile.uid,
+        uid: labProfile.uid,
         updatedAt: serverTimestamp(),
         createdAt: initialData?.createdAt || serverTimestamp(),
-      });
+      };
 
       if (initialData?.id) {
         try {
@@ -705,13 +557,6 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
             PDF
           </button>
           <button
-            onClick={handlePrint}
-            className="flex-1 md:flex-none px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-black rounded-xl shadow-sm hover:bg-slate-50 flex items-center justify-center gap-2 transition-all"
-          >
-            <Printer className="h-5 w-5" />
-            Print
-          </button>
-          <button
             id="hidden-pdf-trigger"
             onClick={generatePDF}
             className="hidden"
@@ -729,7 +574,6 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
 
       {/* Hidden container for PDF generation - Always present to avoid "Report element not found" */}
       <div 
-        id="report-export-root"
         className="fixed pointer-events-none opacity-0" 
         style={{ left: '-9999px', top: 0, width: '210mm' }}
       >
@@ -739,7 +583,6 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
             patientData={patientData} 
             categoryGroups={categoryGroups} 
             resultsCache={resultsCache}
-            mode="export"
           />
         </div>
       </div>
@@ -760,7 +603,6 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
                   patientData={patientData} 
                   categoryGroups={categoryGroups} 
                   resultsCache={resultsCache}
-                  mode="preview"
                 />
               </div>
             </motion.div>
@@ -1080,7 +922,7 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
                                         <button
                                           key={i}
                                           onClick={() => {
-                                            const newSubParam = applyMetadataDefaults({ ...sp, id: createId(), result: '' }, group.subCategoryName);
+                                            const newSubParam = { ...sp, id: Math.random().toString(36).substr(2, 9), result: '' };
                                             setCategoryGroups(prev => prev.map(pg => {
                                               if (pg.id === group.id) {
                                                 const newTests = [...pg.tests];
