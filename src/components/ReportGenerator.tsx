@@ -395,96 +395,112 @@ export default function ReportGenerator({ labProfile, initialData }: any) {
     );
   };
 
+  const buildPdfOptions = () => ({
+    margin: 0,
+    filename: `Report_${patientData.patientName || 'Patient'}_${Date.now()}.pdf`,
+    image: { type: 'jpeg' as const, quality: 0.98 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      letterRendering: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      windowWidth: 794,
+    },
+    jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
+    pagebreak: { mode: ['css', 'legacy'] },
+  });
+
+  const waitForImages = async (doc: Document) => {
+    const images = Array.from(doc.images);
+    await Promise.all(
+      images.map((img) => {
+        if (img.complete) return Promise.resolve();
+        return new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+        });
+      }),
+    );
+  };
+
+  const createPdfDocument = async () => {
+    const source = reportRef.current;
+    if (!source) return null;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      document.body.removeChild(iframe);
+      return null;
+    }
+
+    iframeDoc.open();
+    iframeDoc.write(`
+      <html>
+        <head>
+          <title>Report Export</title>
+          <style>
+            html, body {
+              margin: 0;
+              padding: 0;
+              background: #ffffff;
+            }
+            * {
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            @page {
+              size: A4;
+              margin: 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div id="pdf-root">${source.innerHTML}</div>
+        </body>
+      </html>
+    `);
+    iframeDoc.close();
+
+    await waitForImages(iframeDoc);
+    return { iframe, root: iframeDoc.getElementById('pdf-root') };
+  };
+
   const generatePDF = async () => {
-    let element = reportRef.current;
-    
-    if (!element) {
+    if (!reportRef.current) {
       console.error('Report element not found');
       return;
     }
-    
-    const opt = {
-      margin: 0,
-      filename: `Report_${patientData.patientName || 'Patient'}_${Date.now()}.pdf`,
-      image: { type: 'jpeg' as const, quality: 1.0 },
-      html2canvas: { 
-        scale: 3, 
-        useCORS: true, 
-        letterRendering: true,
-        logging: false,
-        onclone: (clonedDoc: Document) => {
-          // Fix for html2canvas not supporting oklch/oklab colors
-          const elements = clonedDoc.getElementsByTagName('*');
-          
-          // 1. Apply computed styles as inline styles to all elements
-          for (let i = 0; i < elements.length; i++) {
-            const el = elements[i] as HTMLElement;
-            const style = window.getComputedStyle(el);
-            
-            // Properties that might contain problematic colors
-            const colorProps = [
-              'color', 'backgroundColor', 'borderColor', 'fill', 'stroke'
-            ];
-            
-            colorProps.forEach(prop => {
-              let value = (style as any)[prop];
-              if (value && (value.includes('oklch') || value.includes('oklab'))) {
-                // Simple heuristic: if it's a known laboratory color, use hex
-                if (el.classList.contains('text-blue-900')) el.style.setProperty(prop, '#1e3a8a', 'important');
-                else if (el.classList.contains('text-blue-600')) el.style.setProperty(prop, '#2563eb', 'important');
-                else if (el.classList.contains('bg-blue-600')) el.style.setProperty(prop, '#2563eb', 'important');
-                else if (el.classList.contains('bg-slate-900')) el.style.setProperty(prop, '#0f172a', 'important');
-                else if (el.classList.contains('text-slate-900')) el.style.setProperty(prop, '#0f172a', 'important');
-                else if (el.classList.contains('text-slate-500')) el.style.setProperty(prop, '#64748b', 'important');
-                else if (el.classList.contains('text-slate-400')) el.style.setProperty(prop, '#94a3b8', 'important');
-                else if (prop === 'color') el.style.setProperty(prop, '#000000', 'important');
-                else if (prop === 'backgroundColor') el.style.setProperty(prop, '#ffffff', 'important');
-                else el.style.setProperty(prop, 'transparent', 'important');
-              }
-            });
 
-            // Remove shadows and filters as they often cause html2canvas to crash
-            el.style.boxShadow = 'none';
-            el.style.textShadow = 'none';
-            el.style.filter = 'none';
-            el.style.backdropFilter = 'none';
-          }
-
-          // 2. Sanitize style tags instead of removing them
-          const styleTags = clonedDoc.getElementsByTagName('style');
-          for (let i = 0; i < styleTags.length; i++) {
-            let content = styleTags[i].innerHTML;
-            if (content.includes('oklch') || content.includes('oklab')) {
-              // Replace oklch/oklab with a safe fallback to prevent html2canvas parser crash
-              content = content.replace(/oklch\([^)]+\)/g, 'rgb(0,0,0)');
-              content = content.replace(/oklab\([^)]+\)/g, 'rgb(0,0,0)');
-              styleTags[i].innerHTML = content;
-            }
-          }
-          
-          // Only remove external link stylesheets as they are most likely to contain problematic CSS
-          const linkTags = clonedDoc.getElementsByTagName('link');
-          for (let i = linkTags.length - 1; i >= 0; i--) {
-            if (linkTags[i].rel === 'stylesheet') {
-              linkTags[i].parentNode?.removeChild(linkTags[i]);
-            }
-          }
-        }
-      },
-      jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-    };
+    let pdfContext: { iframe: HTMLIFrameElement; root: HTMLElement | null } | null = null;
 
     try {
       setLoading(true);
-      // Small delay to ensure any dynamic content is ready and styles are applied
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      await html2pdf().from(element).set(opt).save();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      pdfContext = await createPdfDocument();
+      if (!pdfContext?.root) {
+        throw new Error('Unable to prepare report for PDF export.');
+      }
+
+      await html2pdf().from(pdfContext.root).set(buildPdfOptions()).save();
     } catch (err: any) {
       console.error('PDF Generation Error:', err);
-      alert(`Failed to generate PDF. This might be due to a browser compatibility issue with certain colors. Error: ${err.message}`);
+      alert(`Failed to generate PDF. ${err.message}`);
     } finally {
+      if (pdfContext?.iframe && document.body.contains(pdfContext.iframe)) {
+        document.body.removeChild(pdfContext.iframe);
+      }
       setLoading(false);
     }
   };
