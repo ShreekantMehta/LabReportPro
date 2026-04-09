@@ -72,6 +72,15 @@ export default function ReportPreview({ labProfile, patientData, categoryGroups,
           background: white;
           padding: 0;
           margin: 0;
+          width: 210mm;
+          min-height: 297mm;
+          margin-left: auto;
+          margin-right: auto;
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          box-sizing: border-box;
+          overflow: hidden;
         }
         .text-bold { font-weight: 700; }
         .text-black { font-weight: 900; }
@@ -80,8 +89,21 @@ export default function ReportPreview({ labProfile, patientData, categoryGroups,
         .text-blue { color: #1e3a8a; }
         .border-b { border-bottom: 1px solid #e2e8f0; }
         .border-t { border-top: 1px solid #e2e8f0; }
+        .page-break-before-always { page-break-before: always; }
         table { table-layout: fixed; width: 100%; border-collapse: collapse; }
         th, td { overflow: hidden; word-wrap: break-word; }
+        tr, td, th { page-break-inside: avoid; break-inside: avoid; }
+        .report-content {
+          flex: 1 1 auto;
+          display: flex;
+          flex-direction: column;
+        }
+        .report-signatures {
+          margin-top: auto;
+        }
+        .report-footer {
+          flex-shrink: 0;
+        }
       `}} />
       
       {categoryGroups.map((group: any, index: number) => (
@@ -132,7 +154,7 @@ export default function ReportPreview({ labProfile, patientData, categoryGroups,
             </div>
           )}
 
-          <div style={{ padding: '20px 40px' }}>
+          <div className="report-content" style={{ padding: '20px 40px' }}>
             {/* Patient Info Section - Matches Screenshot */}
             <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '15px' }}>
               <tbody>
@@ -299,7 +321,7 @@ export default function ReportPreview({ labProfile, patientData, categoryGroups,
           </div>
 
           {/* Signatures Section */}
-          <div style={{ marginTop: 'auto', padding: '0 40px 40px 40px' }}>
+          <div className="report-signatures" style={{ marginTop: 'auto', padding: '0 40px 40px 40px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <tbody>
                 <tr>
@@ -330,7 +352,7 @@ export default function ReportPreview({ labProfile, patientData, categoryGroups,
           </div>
 
           {/* Footer */}
-          <div style={{ borderTop: '4px solid #1e3a8a', padding: '15px 40px', textAlign: 'center' }}>
+          <div className="report-footer" style={{ borderTop: '4px solid #1e3a8a', padding: '15px 40px', textAlign: 'center' }}>
             <p style={{ fontSize: '11px', fontWeight: '900', margin: '0 0 4px 0', textTransform: 'uppercase' }}>NOT VALID FOR MEDICO LEGAL PURPOSE</p>
             <p style={{ fontSize: '9px', color: '#64748b', margin: '0 0 4px 0', fontWeight: '700' }}>Work timings: {labProfile?.workTimings || 'Monday to Sunday, 8 am to 8 pm'}</p>
             <p style={{ fontSize: '8px', color: '#94a3b8', margin: 0, maxWidth: '650px', marginInline: 'auto', fontStyle: 'italic' }}>
